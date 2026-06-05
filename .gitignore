@@ -1,0 +1,33 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Ambiente & Segredos
+.env
+.streamlit/secrets.toml
+
+# Dados Excel do app
+# Mantém versionados para o Streamlit Cloud conseguir ler
+!apostas/*.xlsx
+!gabarito/*.xlsx
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
