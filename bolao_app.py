@@ -1566,7 +1566,7 @@ T4 = _tabs[3] if MOSTRAR_SIMULACAO else None
 # ── TAB 1: RANKING ───────────────────────────────────────────────────
 with T1:
     n_parts    = len(bettors)
-    prize_pool = n_parts * 50              # ← ajuste o valor por pessoa aqui
+    prize_pool = n_parts * 100              # ← ajuste o valor por pessoa aqui
     prize_pct  = {1: .70, 2: .20, 3: .10}  # ← ajuste a divisão do prêmio aqui
 
     _all_rk_names = [b[0] for b in bettors]
