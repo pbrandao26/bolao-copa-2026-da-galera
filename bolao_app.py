@@ -1978,19 +1978,67 @@ if MOSTRAR_SIMULACAO:
         st.caption("Preencha placares dos jogos que ainda não aconteceram e veja como o ranking ficaria. "
                    "Jogos já no gabarito ficam travados 🔒.")
 
-        # Estado atual dos grupos (gabarito + simulação)
-        _mgr_cur = {**st.session_state["sim_gr"]}
-        for _m, _v in gr.items():
-            _mgr_cur[_m] = _v
-
         _sg_sel = st.radio("Grupo:", GL, horizontal=True, label_visibility="collapsed", key="sim_grp_sel")
         _sg_games = [(m, gd, t1, t2)
                      for m, (gd, g, t1, t2) in enumerate(GROUP_FIXTURES)
                      if g == _sg_sel]
-        _live_st = sort_st(calc_st(_mgr_cur))
-        _grp_st  = _live_st.get(_sg_sel, [])
 
         _gc1, _gc2 = st.columns([5, 4])
+
+        # 1) JOGOS/INPUTS primeiro (gravam no sim_gr nesta mesma execução)
+        with _gc2:
+            st.markdown(f'<div class="sh">⚽ Jogos — Grupo {_sg_sel}</div>', unsafe_allow_html=True)
+            for _m, _gd, _t1, _t2 in _sg_games:
+                _ds = _gd.strftime("%d/%m")
+                if _m in gr:
+                    _r = gr[_m]
+                    st.markdown(
+                        f'<div class="mr" style="opacity:.7">'
+                        f'<div style="font-size:.68rem;opacity:.5;min-width:30px">{_ds}</div>'
+                        f'<div class="mr-t">{FI(_t1)}{_t1}</div>'
+                        f'<div class="mr-s">{_r[0]}–{_r[1]}</div>'
+                        f'<div class="mr-t" style="text-align:right">{FI(_t2)}{_t2}</div>'
+                        f'<span style="font-size:.62rem;opacity:.4;margin-left:4px">🔒</span>'
+                        f'</div>',
+                        unsafe_allow_html=True)
+                    continue
+                _cur = st.session_state["sim_gr"].get(_m)
+                _t1v = "" if _cur is None else str(_cur[0])
+                _t2v = "" if _cur is None else str(_cur[1])
+                _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([0.6, 2.7, 0.9, 0.9, 2.7])
+                _mc1.markdown(
+                    f'<div style="font-size:.65rem;opacity:.5;padding-top:7px;text-align:right">{_ds}</div>',
+                    unsafe_allow_html=True)
+                _mc2.markdown(
+                    f'<div style="font-size:.82rem;font-weight:700;text-align:right;'
+                    f'padding-top:5px">{FI(_t1)}{_t1}</div>',
+                    unsafe_allow_html=True)
+                _r1 = _mc3.text_input("p1", value=_t1v, max_chars=2,
+                                      key=f"sg_{_m}_1_v{_rv}",
+                                      label_visibility="collapsed", placeholder="–")
+                _r2 = _mc4.text_input("p2", value=_t2v, max_chars=2,
+                                      key=f"sg_{_m}_2_v{_rv}",
+                                      label_visibility="collapsed", placeholder="–")
+                _mc5.markdown(
+                    f'<div style="font-size:.82rem;font-weight:700;padding-top:5px">'
+                    f'{FI(_t2)}{_t2}</div>',
+                    unsafe_allow_html=True)
+
+                _x1 = (_r1 or "").strip(); _x2 = (_r2 or "").strip()
+                _s1 = int(_x1) if (_x1.isdigit() and int(_x1) <= 20) else None
+                _s2 = int(_x2) if (_x2.isdigit() and int(_x2) <= 20) else None
+                if _s1 is not None and _s2 is not None:
+                    st.session_state["sim_gr"][_m] = (_s1, _s2)
+                else:
+                    st.session_state["sim_gr"].pop(_m, None)
+
+        # 2) Recalcula a classificação JÁ com o sim_gr atualizado (sem atraso)
+        _mgr_now = {**st.session_state["sim_gr"]}
+        for _m, _v in gr.items():
+            _mgr_now[_m] = _v
+        _grp_st = sort_st(calc_st(_mgr_now)).get(_sg_sel, [])
+
+        # 3) Classificação por último (aparece na coluna da esquerda mesmo assim)
         with _gc1:
             st.markdown(f'<div class="sh">📊 Classificação — Grupo {_sg_sel}</div>', unsafe_allow_html=True)
             _st_h = ("<table class='gt'><thead><tr>"
@@ -2011,41 +2059,6 @@ if MOSTRAR_SIMULACAO:
                     f"<td>{_td['gf']}</td><td>{_td['ga']}</td>"
                     f"<td>{_td['gf']-_td['ga']:+d}</td></tr>")
             st.markdown(f"{_st_h}{_st_r}</tbody></table>", unsafe_allow_html=True)
-
-        with _gc2:
-            st.markdown(f'<div class="sh">⚽ Jogos — Grupo {_sg_sel}</div>', unsafe_allow_html=True)
-            for _m, _gd, _t1, _t2 in _sg_games:
-                _ds = _gd.strftime("%d/%m")
-                if _m in gr:
-                    _r = gr[_m]
-                    st.markdown(
-                        f'<div class="mr" style="opacity:.7">'
-                        f'<div style="font-size:.68rem;opacity:.5;min-width:30px">{_ds}</div>'
-                        f'<div class="mr-t">{FI(_t1)}{_t1}</div>'
-                        f'<div class="mr-s">{_r[0]}–{_r[1]}</div>'
-                        f'<div class="mr-t" style="text-align:right">{FI(_t2)}{_t2}</div>'
-                        f'<span style="font-size:.62rem;opacity:.4;margin-left:4px">🔒</span>'
-                        f'</div>',
-                        unsafe_allow_html=True)
-                    continue
-                _cur = st.session_state["sim_gr"].get(_m, (0, 0))
-                _mc1, _mc2, _mc3, _mc4, _mc5 = st.columns([0.6, 3, 0.6, 0.6, 3])
-                _mc1.markdown(
-                    f'<div style="font-size:.65rem;opacity:.5;padding-top:7px;text-align:right">{_ds}</div>',
-                    unsafe_allow_html=True)
-                _mc2.markdown(
-                    f'<div style="font-size:.82rem;font-weight:700;text-align:right;'
-                    f'padding-top:5px">{FI(_t1)}{_t1}</div>',
-                    unsafe_allow_html=True)
-                _s1 = _mc3.number_input("p1", 0, 20, int(_cur[0]),
-                                        key=f"sg_{_m}_1_v{_rv}", label_visibility="collapsed")
-                _s2 = _mc4.number_input("p2", 0, 20, int(_cur[1]),
-                                        key=f"sg_{_m}_2_v{_rv}", label_visibility="collapsed")
-                _mc5.markdown(
-                    f'<div style="font-size:.82rem;font-weight:700;padding-top:5px">'
-                    f'{FI(_t2)}{_t2}</div>',
-                    unsafe_allow_html=True)
-                st.session_state["sim_gr"][_m] = (int(_s1), int(_s2))
 
         # ── Simular artilheiro ────────────────────────────────────────
         with st.expander("🎯 Simular Artilheiro (Bônus · 20 pts)", expanded=False):
