@@ -7,7 +7,7 @@ Dashboard simplificado · só fase de grupos + bônus artilheiro (20 pts)
 import streamlit as st
 import plotly.graph_objects as go
 from openpyxl import load_workbook
-import os, re, base64, hashlib, pickle
+import os, re, base64, hashlib, pickle, unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from collections import OrderedDict
 from datetime import date
@@ -1327,6 +1327,34 @@ def score_all(gb, bb, gr, br):
         ap = 20
     return dict(total=gt+ap, grupos=gt, bonus=ap, art_pts=ap, gdet=gdet)
 
+def _safe_int(v):
+    try:
+        return int(v or 0)
+    except Exception:
+        return 0
+
+def _qtd_acertos_grupos(sc, pts):
+    return sum(1 for p in (sc.get("gdet") or {}).values() if p == pts)
+
+def _nome_alfabetico(nome):
+    nome = str(nome or "").strip().casefold()
+    nome = unicodedata.normalize("NFKD", nome)
+    nome = "".join(ch for ch in nome if not unicodedata.combining(ch))
+    return nome
+
+def ranking_score_key(nome, sc):
+    return (
+        -_safe_int(sc.get("total")),       # Pontuação total
+        -_qtd_acertos_grupos(sc, 5),       # 1º desempate: acertos de 5 pts
+        -_qtd_acertos_grupos(sc, 3),       # 2º desempate: acertos de 3 pts
+        _nome_alfabetico(nome),            # 3º desempate: ordem alfabética
+    )
+
+def ranking_bettor_key(bettor):
+    nm = bettor[0]
+    sc = bettor[3]
+    return ranking_score_key(nm, sc)
+
 # ══════════════════════════════════════════════════════════════════════
 # FILE LOADING
 # ══════════════════════════════════════════════════════════════════════
@@ -1424,7 +1452,7 @@ def load_all_data_consolidated(gab_path, consol_path):
         gb, bb = d["gb"], d["bb"]
         sc = score_all(gb, bb, gr, br)
         bettors.append((nm, gb, bb, sc))
-    bettors.sort(key=lambda x: -x[3]["total"])
+    bettors.sort(key=ranking_bettor_key)
     return gr, br, bettors
 
 @st.cache_data(show_spinner=False)
@@ -1438,7 +1466,7 @@ def load_all_data(gab_path, parts_tuple):
     n_workers = min(16, len(parts_tuple) or 1)
     with ThreadPoolExecutor(max_workers=n_workers) as ex:
         bettors = list(ex.map(_load_one, parts_tuple))
-    bettors.sort(key=lambda x: -x[3]['total'])
+    bettors.sort(key=ranking_bettor_key)
     return gr, br, bettors
 
 # ══════════════════════════════════════════════════════════════════════
@@ -2100,9 +2128,17 @@ if MOSTRAR_SIMULACAO:
             for _nm, _gb, _bb, _rsc in bettors:
                 _sc2 = score_all(_gb, _bb, _mgr_c, _sim_br)
                 _d2  = _sc2["total"] - _rsc["total"]
-                _sim_r.append((_nm, _sc2["total"], _rsc["total"], _d2))
-            _sim_r.sort(key=lambda x: -x[1])
-            st.session_state["sim_res"] = _sim_r
+                _sim_r.append((_nm, _sc2["total"], _rsc["total"], _d2, _sc2))
+
+            # Ordena o ranking simulado pelos mesmos critérios oficiais
+            _sim_r.sort(key=lambda x: ranking_score_key(x[0], x[4]))
+
+            # Mantém o formato antigo que a tela já espera:
+            # nome, pontuação simulada, pontuação atual, delta
+            st.session_state["sim_res"] = [
+                (_nm, _sp, _rp, _dlt)
+                for _nm, _sp, _rp, _dlt, _sc2 in _sim_r
+            ]
 
         # ── Ranking resultado ─────────────────────────────────────────
         if st.session_state.get("sim_res"):
