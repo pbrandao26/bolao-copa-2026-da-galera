@@ -1516,8 +1516,8 @@ with st.sidebar:
         gab_path = None
     else:
         gsel = st.selectbox("📋 Gabarito", [n for n,_ in gabs])
-        gab_path = next(p for n,p in gabs if n==gsel)
-        #gab_path = _baixar_gabarito_do_sheets()                 # SHEETS: descomente p/ testa
+        #gab_path = next(p for n,p in gabs if n==gsel)
+        gab_path = _baixar_gabarito_do_sheets()                 # SHEETS: descomente p/ testa
         st.success(f"✅ {gsel}")
 
     st.markdown("---")
