@@ -198,6 +198,7 @@ FRONT_PAGE = find_asset("front_page.png")
 FAVICON    = find_asset("favicon.png")
 
 MOSTRAR_SIMULACAO = True   # True → mostra aba 🔮 Simulação
+ARTILHEIRO_REAL: str | None = None
 
 JOGADORES_ARTILHEIRO: list[tuple[str, str]] = [
     ('Mohammed Al-Owais', 'Arabia Saudita'),
@@ -1471,8 +1472,9 @@ def load_consolidada(path):
     return result
 
 @st.cache_resource(show_spinner=False)
-def load_all_data_consolidated(gab_path, consol_path):
-    gr,br  = load_gab(gab_path)
+def load_all_data_consolidated(gab_path, consol_path, art_real=None):
+    gr, _br_sheet = load_gab(gab_path)
+    br = art_real                       # ← artilheiro vem do backend, não da planilha
     consol = load_consolidada(consol_path)
     bettors = []
     for nm, d in consol.items():
@@ -1483,8 +1485,9 @@ def load_all_data_consolidated(gab_path, consol_path):
     return gr, br, bettors
 
 @st.cache_data(show_spinner=False)
-def load_all_data(gab_path, parts_tuple):
-    gr,br = load_gab(gab_path)
+def load_all_data(gab_path, parts_tuple, art_real=None):
+    gr, _br_sheet = load_gab(gab_path)
+    br = art_real                       # ← idem
     def _load_one(item):
         nm, fp = item
         gb, bb = load_part(fp)
@@ -1577,15 +1580,16 @@ else:
     _all_paths = [gab_path] + [fp for _, fp in parts]
 
 _fp = _compute_fingerprint(_all_paths)
+_fp = hashlib.md5(f"{_fp}|art:{ARTILHEIRO_REAL}".encode()).hexdigest()   # ← linha nova
 _disk_data = _disk_cache_get(_fp)
 if _disk_data is not None:
     gr, br, bettors = _disk_data
 else:
     with st.spinner("Carregando dados..."):
         if CONSOLIDADA_PATH.exists():
-            gr, br, bettors = load_all_data_consolidated(gab_path, str(CONSOLIDADA_PATH))
+            gr, br, bettors = load_all_data_consolidated(gab_path, str(CONSOLIDADA_PATH), ARTILHEIRO_REAL)
         else:
-            gr, br, bettors = load_all_data(gab_path, tuple(parts))
+            gr, br, bettors = load_all_data(gab_path, tuple(parts), ARTILHEIRO_REAL)
     try:
         with open(_CACHE_PATH, "wb") as _cf:
             pickle.dump({"fp": _fp, "data": (gr, br, bettors)}, _cf,
